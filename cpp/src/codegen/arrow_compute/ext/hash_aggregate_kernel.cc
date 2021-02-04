@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-#include <arrow/compute/context.h>
 #include <arrow/type.h>
 #include <arrow/type_fwd.h>
 #include <arrow/type_traits.h>
@@ -45,7 +44,7 @@ using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 ///////////////  SortArraysToIndices  ////////////////
 class HashAggregateKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx,
+  Impl(arrow::compute::ExecContext* ctx,
        std::vector<std::shared_ptr<arrow::Field>> input_field_list,
        std::vector<std::shared_ptr<gandiva::Node>> action_list,
        std::shared_ptr<arrow::Schema> result_schema)
@@ -146,7 +145,7 @@ class HashAggregateKernel::Impl {
   std::vector<std::shared_ptr<gandiva::Node>> action_list_;
   std::shared_ptr<arrow::Schema> result_schema_;
   std::shared_ptr<CodeGenBase> hash_aggregater_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::vector<std::shared_ptr<arrow::Field>> field_list_;
   std::shared_ptr<gandiva::Projector> projector_;
   std::vector<std::shared_ptr<ActionCodeGen>> action_impl_list_;
@@ -337,7 +336,7 @@ using namespace sparkcolumnarplugin::precompile;
 
 class TypedGroupbyHashAggregateImpl : public CodeGenBase {
  public:
-  TypedGroupbyHashAggregateImpl(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  TypedGroupbyHashAggregateImpl(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
     hash_table_ = )" +
            hash_map_define_str + R"(
   }
@@ -412,7 +411,7 @@ class TypedGroupbyHashAggregateImpl : public CodeGenBase {
  private:
   )" + impl_cached_define_str +
            R"(
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   uint64_t num_groups_ = 0;
   uint64_t cur_id_ = 0;
   std::shared_ptr<)" +
@@ -421,7 +420,7 @@ class TypedGroupbyHashAggregateImpl : public CodeGenBase {
   class HashAggregationResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
     HashAggregationResultIterator(
-      arrow::compute::FunctionContext* ctx,
+      arrow::compute::ExecContext* ctx,
       std::shared_ptr<arrow::Schema> schema,
       uint64_t num_groups,
    )" + result_cached_parameter_str +
@@ -463,11 +462,11 @@ class TypedGroupbyHashAggregateImpl : public CodeGenBase {
     uint64_t offset_ = 0;
     const uint64_t total_length_;
     std::shared_ptr<arrow::Schema> result_schema_;
-    arrow::compute::FunctionContext* ctx_;
+    arrow::compute::ExecContext* ctx_;
   };
 };
 
-extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
+extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<CodeGenBase>* out) {
   *out = std::make_shared<TypedGroupbyHashAggregateImpl>(ctx);
 }
@@ -500,7 +499,7 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
 };
 
 arrow::Status HashAggregateKernel::Make(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<arrow::Field>> input_field_list,
     std::vector<std::shared_ptr<gandiva::Node>> action_list,
     std::shared_ptr<arrow::Schema> result_schema, std::shared_ptr<KernalBase>* out) {
@@ -510,7 +509,7 @@ arrow::Status HashAggregateKernel::Make(
 }
 
 HashAggregateKernel::HashAggregateKernel(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<arrow::Field>> input_field_list,
     std::vector<std::shared_ptr<gandiva::Node>> action_list,
     std::shared_ptr<arrow::Schema> result_schema) {

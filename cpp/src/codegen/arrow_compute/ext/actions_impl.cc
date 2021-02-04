@@ -84,7 +84,7 @@ uint64_t ActionBase::GetResultLength() { return 0; }
 template <typename DataType, typename CType>
 class UniqueAction : public ActionBase {
  public:
-  UniqueAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  UniqueAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
 #ifdef DEBUG
     std::cout << "Construct UniqueAction" << std::endl;
 #endif
@@ -193,7 +193,7 @@ class UniqueAction : public ActionBase {
   using BuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
   // input
   int row_id_ = 0;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<ArrayType> in_;
   // output
   std::unique_ptr<BuilderType> builder_;
@@ -206,7 +206,7 @@ class UniqueAction : public ActionBase {
 template <typename DataType>
 class CountAction : public ActionBase {
  public:
-  CountAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  CountAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
 #ifdef DEBUG
     std::cout << "Construct CountAction" << std::endl;
 #endif
@@ -288,7 +288,7 @@ class CountAction : public ActionBase {
   using ResArrayType = typename arrow::TypeTraits<DataType>::ArrayType;
   using ResBuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<arrow::Array> in_;
   int32_t row_id;
   // result
@@ -301,7 +301,7 @@ class CountAction : public ActionBase {
 template <typename DataType>
 class CountLiteralAction : public ActionBase {
  public:
-  CountLiteralAction(arrow::compute::FunctionContext* ctx, int arg)
+  CountLiteralAction(arrow::compute::ExecContext* ctx, int arg)
       : ctx_(ctx), arg_(arg) {
 #ifdef DEBUG
     std::cout << "Construct CountLiteralAction" << std::endl;
@@ -369,7 +369,7 @@ class CountLiteralAction : public ActionBase {
   using ResArrayType = typename arrow::TypeTraits<DataType>::ArrayType;
   using ResBuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   int arg_;
   // result
   using CType = typename arrow::TypeTraits<DataType>::CType;
@@ -381,7 +381,7 @@ class CountLiteralAction : public ActionBase {
 template <typename DataType>
 class MinAction : public ActionBase {
  public:
-  MinAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  MinAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
 #ifdef DEBUG
     std::cout << "Construct MinAction" << std::endl;
 #endif
@@ -479,7 +479,7 @@ class MinAction : public ActionBase {
   using BuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
   
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<arrow::Array> in_;
   CType* data_;
   int row_id;
@@ -493,7 +493,7 @@ class MinAction : public ActionBase {
 template <typename DataType>
 class MaxAction : public ActionBase {
  public:
-  MaxAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  MaxAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
 #ifdef DEBUG
     std::cout << "Construct MaxAction" << std::endl;
 #endif
@@ -590,7 +590,7 @@ class MaxAction : public ActionBase {
   using CType = typename arrow::TypeTraits<DataType>::CType;
   using BuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<arrow::Array> in_;
   CType* data_;
   int row_id;
@@ -604,7 +604,7 @@ class MaxAction : public ActionBase {
 template <typename DataType>
 class SumAction : public ActionBase {
  public:
-  SumAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  SumAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
 #ifdef DEBUG
     std::cout << "Construct SumAction" << std::endl;
 #endif
@@ -694,7 +694,7 @@ class SumAction : public ActionBase {
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
   using ResBuilderType = typename arrow::TypeTraits<ResDataType>::BuilderType;
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<arrow::Array> in_;
   CType* data_;
   int row_id;
@@ -708,7 +708,7 @@ class SumAction : public ActionBase {
 template <typename DataType>
 class AvgAction : public ActionBase {
  public:
-  AvgAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  AvgAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> builder;
     arrow::MakeBuilder(ctx_->memory_pool(),
                        arrow::TypeTraits<arrow::DoubleType>::type_singleton(), &builder);
@@ -807,7 +807,7 @@ class AvgAction : public ActionBase {
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
   std::unique_ptr<arrow::DoubleBuilder> builder_;
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   CType* data_;
   std::shared_ptr<arrow::Array> in_;
   int row_id;
@@ -821,7 +821,7 @@ class AvgAction : public ActionBase {
 template <typename DataType>
 class SumCountAction : public ActionBase {
  public:
-  SumCountAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  SumCountAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> sum_builder;
     std::unique_ptr<arrow::ArrayBuilder> count_builder;
     arrow::MakeBuilder(ctx_->memory_pool(),
@@ -926,7 +926,7 @@ class SumCountAction : public ActionBase {
   std::unique_ptr<arrow::DoubleBuilder> sum_builder_;
   std::unique_ptr<arrow::Int64Builder> count_builder_;
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   CType* data_;
   std::shared_ptr<arrow::Array> in_;
   int row_id;
@@ -939,7 +939,7 @@ class SumCountAction : public ActionBase {
 template <typename DataType>
 class SumCountMergeAction : public ActionBase {
  public:
-  SumCountMergeAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  SumCountMergeAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> sum_builder;
     std::unique_ptr<arrow::ArrayBuilder> count_builder;
     arrow::MakeBuilder(ctx_->memory_pool(),
@@ -1046,7 +1046,7 @@ class SumCountMergeAction : public ActionBase {
   std::unique_ptr<arrow::DoubleBuilder> sum_builder_;
   std::unique_ptr<arrow::Int64Builder> count_builder_;
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   double* data_sum_;
   int64_t* data_count_;
   int row_id;
@@ -1061,7 +1061,7 @@ class SumCountMergeAction : public ActionBase {
 template <typename DataType>
 class AvgByCountAction : public ActionBase {
  public:
-  AvgByCountAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  AvgByCountAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> builder;
     arrow::MakeBuilder(ctx_->memory_pool(), 
         arrow::TypeTraits<arrow::DoubleType>::type_singleton(), &builder);
@@ -1171,7 +1171,7 @@ class AvgByCountAction : public ActionBase {
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
   std::unique_ptr<arrow::DoubleBuilder> builder_;
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   double* data_sum_;
   int64_t* data_count_;
   int row_id;
@@ -1187,7 +1187,7 @@ class AvgByCountAction : public ActionBase {
 template <typename DataType>
 class StddevSampPartialAction : public ActionBase {
  public:
-  StddevSampPartialAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  StddevSampPartialAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> count_builder;
     std::unique_ptr<arrow::ArrayBuilder> avg_builder;
     std::unique_ptr<arrow::ArrayBuilder> m2_builder;
@@ -1343,7 +1343,7 @@ class StddevSampPartialAction : public ActionBase {
   std::unique_ptr<arrow::DoubleBuilder> avg_builder_;
   std::unique_ptr<arrow::DoubleBuilder> m2_builder_;
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   CType* data_;
   std::shared_ptr<arrow::Array> in_;
   int row_id;
@@ -1358,7 +1358,7 @@ class StddevSampPartialAction : public ActionBase {
 template <typename DataType>
 class StddevSampFinalAction : public ActionBase {
  public:
-  StddevSampFinalAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  StddevSampFinalAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> builder;
     arrow::MakeBuilder(ctx_->memory_pool(),
                        arrow::TypeTraits<arrow::DoubleType>::type_singleton(), &builder);
@@ -1482,7 +1482,7 @@ class StddevSampFinalAction : public ActionBase {
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
   std::unique_ptr<arrow::DoubleBuilder> builder_;
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   double* data_count_;
   double* data_avg_;
   double* data_m2_;
@@ -1510,7 +1510,7 @@ class StddevSampFinalAction : public ActionBase {
   PROCESS(arrow::FloatType)              \
   PROCESS(arrow::DoubleType)
 
-arrow::Status MakeUniqueAction(arrow::compute::FunctionContext *ctx,
+arrow::Status MakeUniqueAction(arrow::compute::ExecContext *ctx,
                                std::shared_ptr<arrow::DataType> type,
                                std::shared_ptr<ActionBase> *out) {
   switch (type->id()) {
@@ -1541,19 +1541,19 @@ arrow::Status MakeUniqueAction(arrow::compute::FunctionContext *ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeCountAction(arrow::compute::FunctionContext *ctx, std::shared_ptr<ActionBase> *out) {
+arrow::Status MakeCountAction(arrow::compute::ExecContext *ctx, std::shared_ptr<ActionBase> *out) {
   auto action_ptr = std::make_shared<CountAction<arrow::UInt64Type>>(ctx);
   *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
   return arrow::Status::OK();
 }
 
-arrow::Status MakeCountLiteralAction(arrow::compute::FunctionContext *ctx, int arg, std::shared_ptr<ActionBase> *out) {
+arrow::Status MakeCountLiteralAction(arrow::compute::ExecContext *ctx, int arg, std::shared_ptr<ActionBase> *out) {
   auto action_ptr = std::make_shared<CountLiteralAction<arrow::UInt64Type>>(ctx, arg);
   *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
   return arrow::Status::OK();
 }
 
-arrow::Status MakeSumAction(arrow::compute::FunctionContext *ctx,
+arrow::Status MakeSumAction(arrow::compute::ExecContext *ctx,
                             std::shared_ptr<arrow::DataType> type,
                             std::shared_ptr<ActionBase> *out) {
   switch (type->id()) {
@@ -1570,7 +1570,7 @@ arrow::Status MakeSumAction(arrow::compute::FunctionContext *ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeAvgAction(arrow::compute::FunctionContext *ctx,
+arrow::Status MakeAvgAction(arrow::compute::ExecContext *ctx,
                             std::shared_ptr<arrow::DataType> type,
                             std::shared_ptr<ActionBase> *out) {
   switch (type->id()) {
@@ -1587,7 +1587,7 @@ arrow::Status MakeAvgAction(arrow::compute::FunctionContext *ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeMinAction(arrow::compute::FunctionContext *ctx,
+arrow::Status MakeMinAction(arrow::compute::ExecContext *ctx,
                             std::shared_ptr<arrow::DataType> type,
                             std::shared_ptr<ActionBase> *out) {
   switch (type->id()) {
@@ -1604,7 +1604,7 @@ arrow::Status MakeMinAction(arrow::compute::FunctionContext *ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeMaxAction(arrow::compute::FunctionContext *ctx,
+arrow::Status MakeMaxAction(arrow::compute::ExecContext *ctx,
                             std::shared_ptr<arrow::DataType> type,
                             std::shared_ptr<ActionBase> *out) {
   switch (type->id()) {
@@ -1621,7 +1621,7 @@ arrow::Status MakeMaxAction(arrow::compute::FunctionContext *ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeSumCountAction(arrow::compute::FunctionContext *ctx,
+arrow::Status MakeSumCountAction(arrow::compute::ExecContext *ctx,
                                  std::shared_ptr<arrow::DataType> type,
                                  std::shared_ptr<ActionBase> *out) {
   switch (type->id()) {
@@ -1638,7 +1638,7 @@ arrow::Status MakeSumCountAction(arrow::compute::FunctionContext *ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeSumCountMergeAction(arrow::compute::FunctionContext *ctx,
+arrow::Status MakeSumCountMergeAction(arrow::compute::ExecContext *ctx,
                                       std::shared_ptr<arrow::DataType> type,
                                       std::shared_ptr<ActionBase> *out) {
   switch (type->id()) {
@@ -1655,7 +1655,7 @@ arrow::Status MakeSumCountMergeAction(arrow::compute::FunctionContext *ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeAvgByCountAction(arrow::compute::FunctionContext *ctx,
+arrow::Status MakeAvgByCountAction(arrow::compute::ExecContext *ctx,
                                    std::shared_ptr<arrow::DataType> type,
                                    std::shared_ptr<ActionBase> *out) {
   switch (type->id()) {
@@ -1672,7 +1672,7 @@ arrow::Status MakeAvgByCountAction(arrow::compute::FunctionContext *ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeStddevSampPartialAction(arrow::compute::FunctionContext *ctx,
+arrow::Status MakeStddevSampPartialAction(arrow::compute::ExecContext *ctx,
                                           std::shared_ptr<arrow::DataType> type,
                                           std::shared_ptr<ActionBase> *out) {
   switch (type->id()) {
@@ -1689,7 +1689,7 @@ arrow::Status MakeStddevSampPartialAction(arrow::compute::FunctionContext *ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeStddevSampFinalAction(arrow::compute::FunctionContext *ctx,
+arrow::Status MakeStddevSampFinalAction(arrow::compute::ExecContext *ctx,
                                         std::shared_ptr<arrow::DataType> type,
                                         std::shared_ptr<ActionBase> *out) {
   switch (type->id()) {

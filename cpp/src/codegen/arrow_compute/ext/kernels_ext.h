@@ -18,7 +18,6 @@
 #pragma once
 
 #include <arrow/array.h>
-#include <arrow/compute/context.h>
 #include <arrow/status.h>
 #include <arrow/type_fwd.h>
 #include <gandiva/node.h>
@@ -107,11 +106,11 @@ class KernalBase {
 
 class SplitArrayListWithActionKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             std::vector<std::string> action_name_list,
                             std::vector<std::shared_ptr<arrow::DataType>> type_list,
                             std::shared_ptr<KernalBase>* out);
-  SplitArrayListWithActionKernel(arrow::compute::FunctionContext* ctx,
+  SplitArrayListWithActionKernel(arrow::compute::ExecContext* ctx,
                                  std::vector<std::string> action_name_list,
                                  std::vector<std::shared_ptr<arrow::DataType>> type_list);
   arrow::Status Evaluate(const ArrayList& in,
@@ -124,33 +123,33 @@ class SplitArrayListWithActionKernel : public KernalBase {
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 
 class EncodeArrayKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<KernalBase>* out);
-  EncodeArrayKernel(arrow::compute::FunctionContext* ctx);
+  EncodeArrayKernel(arrow::compute::ExecContext* ctx);
   arrow::Status Evaluate(const std::shared_ptr<arrow::Array>& in,
                          std::shared_ptr<arrow::Array>* out) override;
 
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 
 class WindowAggregateFunctionKernel : public KernalBase {
  public:
   class ActionFactory;
   WindowAggregateFunctionKernel(
-      arrow::compute::FunctionContext* ctx,
+      arrow::compute::ExecContext* ctx,
       std::vector<std::shared_ptr<arrow::DataType>> type_list,
       std::shared_ptr<arrow::DataType> result_type,
       std::vector<std::shared_ptr<arrow::Int32Array>> accumulated_group_ids,
       std::shared_ptr<ActionFactory> action);
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             std::string function_name,
                             std::vector<std::shared_ptr<arrow::DataType>> type_list,
                             std::shared_ptr<arrow::DataType> result_type,
@@ -161,7 +160,7 @@ class WindowAggregateFunctionKernel : public KernalBase {
   arrow::Status Finish0(ArrayList* out);
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<ActionFactory> action_;
   std::vector<std::shared_ptr<arrow::Int32Array>> accumulated_group_ids_;
   std::vector<std::shared_ptr<arrow::DataType>> type_list_;
@@ -170,10 +169,10 @@ class WindowAggregateFunctionKernel : public KernalBase {
 
 class HashArrayKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             std::vector<std::shared_ptr<arrow::DataType>> type_list,
                             std::shared_ptr<KernalBase>* out);
-  HashArrayKernel(arrow::compute::FunctionContext* ctx,
+  HashArrayKernel(arrow::compute::ExecContext* ctx,
                   std::vector<std::shared_ptr<arrow::DataType>> type_list);
   arrow::Status Evaluate(const ArrayList& in,
                          std::shared_ptr<arrow::Array>* out) override;
@@ -181,15 +180,15 @@ class HashArrayKernel : public KernalBase {
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 
 class SumArrayKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::DataType> data_type,
                             std::shared_ptr<KernalBase>* out);
-  SumArrayKernel(arrow::compute::FunctionContext* ctx,
+  SumArrayKernel(arrow::compute::ExecContext* ctx,
                  std::shared_ptr<arrow::DataType> data_type);
   arrow::Status Evaluate(const ArrayList& in) override;
   arrow::Status Finish(ArrayList* out) override;
@@ -197,15 +196,15 @@ class SumArrayKernel : public KernalBase {
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 
 class CountArrayKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::DataType> data_type,
                             std::shared_ptr<KernalBase>* out);
-  CountArrayKernel(arrow::compute::FunctionContext* ctx,
+  CountArrayKernel(arrow::compute::ExecContext* ctx,
                    std::shared_ptr<arrow::DataType> data_type);
   arrow::Status Evaluate(const ArrayList& in) override;
   arrow::Status Finish(ArrayList* out) override;
@@ -213,15 +212,15 @@ class CountArrayKernel : public KernalBase {
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 
 class SumCountArrayKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::DataType> data_type,
                             std::shared_ptr<KernalBase>* out);
-  SumCountArrayKernel(arrow::compute::FunctionContext* ctx,
+  SumCountArrayKernel(arrow::compute::ExecContext* ctx,
                       std::shared_ptr<arrow::DataType> data_type);
   arrow::Status Evaluate(const ArrayList& in) override;
   arrow::Status Finish(ArrayList* out) override;
@@ -229,15 +228,15 @@ class SumCountArrayKernel : public KernalBase {
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 
 class AvgByCountArrayKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::DataType> data_type,
                             std::shared_ptr<KernalBase>* out);
-  AvgByCountArrayKernel(arrow::compute::FunctionContext* ctx,
+  AvgByCountArrayKernel(arrow::compute::ExecContext* ctx,
                         std::shared_ptr<arrow::DataType> data_type);
   arrow::Status Evaluate(const ArrayList& in) override;
   arrow::Status Finish(ArrayList* out) override;
@@ -245,15 +244,15 @@ class AvgByCountArrayKernel : public KernalBase {
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 
 class MinArrayKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::DataType> data_type,
                             std::shared_ptr<KernalBase>* out);
-  MinArrayKernel(arrow::compute::FunctionContext* ctx,
+  MinArrayKernel(arrow::compute::ExecContext* ctx,
                  std::shared_ptr<arrow::DataType> data_type);
   arrow::Status Evaluate(const ArrayList& in) override;
   arrow::Status Finish(ArrayList* out) override;
@@ -261,15 +260,15 @@ class MinArrayKernel : public KernalBase {
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 
 class MaxArrayKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::DataType> data_type,
                             std::shared_ptr<KernalBase>* out);
-  MaxArrayKernel(arrow::compute::FunctionContext* ctx,
+  MaxArrayKernel(arrow::compute::ExecContext* ctx,
                  std::shared_ptr<arrow::DataType> data_type);
   arrow::Status Evaluate(const ArrayList& in) override;
   arrow::Status Finish(ArrayList* out) override;
@@ -277,15 +276,15 @@ class MaxArrayKernel : public KernalBase {
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 
 class StddevSampPartialArrayKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::DataType> data_type,
                             std::shared_ptr<KernalBase>* out);
-  StddevSampPartialArrayKernel(arrow::compute::FunctionContext* ctx,
+  StddevSampPartialArrayKernel(arrow::compute::ExecContext* ctx,
                                std::shared_ptr<arrow::DataType> data_type);
   arrow::Status Evaluate(const ArrayList& in) override;
   arrow::Status Finish(ArrayList* out) override;
@@ -293,15 +292,15 @@ class StddevSampPartialArrayKernel : public KernalBase {
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 
 class StddevSampFinalArrayKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::DataType> data_type,
                             std::shared_ptr<KernalBase>* out);
-  StddevSampFinalArrayKernel(arrow::compute::FunctionContext* ctx,
+  StddevSampFinalArrayKernel(arrow::compute::ExecContext* ctx,
                              std::shared_ptr<arrow::DataType> data_type);
   arrow::Status Evaluate(const ArrayList& in) override;
   arrow::Status Finish(ArrayList* out) override;
@@ -309,19 +308,19 @@ class StddevSampFinalArrayKernel : public KernalBase {
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 
 class SortArraysToIndicesKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::Schema> result_schema,
                             gandiva::NodeVector sort_key_node,
                             std::vector<std::shared_ptr<arrow::Field>> key_field_list,
                             std::vector<bool> sort_directions,
                             std::vector<bool> nulls_order, bool NaN_check,
                             int result_type, std::shared_ptr<KernalBase>* out);
-  SortArraysToIndicesKernel(arrow::compute::FunctionContext* ctx,
+  SortArraysToIndicesKernel(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::Schema> result_schema,
                             gandiva::NodeVector sort_key_node,
                             std::vector<std::shared_ptr<arrow::Field>> key_field_list,
@@ -341,16 +340,16 @@ class SortArraysToIndicesKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 
 class CachedRelationKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::Schema> result_schema,
                             std::vector<std::shared_ptr<arrow::Field>> key_field_list,
                             int result_type, std::shared_ptr<KernalBase>* out);
-  CachedRelationKernel(arrow::compute::FunctionContext* ctx,
+  CachedRelationKernel(arrow::compute::ExecContext* ctx,
                        std::shared_ptr<arrow::Schema> result_schema,
                        std::vector<std::shared_ptr<arrow::Field>> key_field_list,
                        int result_type);
@@ -364,16 +363,16 @@ class CachedRelationKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 
 class WindowSortKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             std::vector<std::shared_ptr<arrow::Field>> key_field_list,
                             std::shared_ptr<arrow::Schema> result_schema,
                             std::shared_ptr<KernalBase>* out, bool nulls_first, bool asc);
-  WindowSortKernel(arrow::compute::FunctionContext* ctx,
+  WindowSortKernel(arrow::compute::ExecContext* ctx,
                    std::vector<std::shared_ptr<arrow::Field>> key_field_list,
                    std::shared_ptr<arrow::Schema> result_schema, bool nulls_first,
                    bool asc);
@@ -384,17 +383,17 @@ class WindowSortKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 
 class HashAggregateKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             std::vector<std::shared_ptr<arrow::Field>> input_field_list,
                             std::vector<std::shared_ptr<gandiva::Node>> action_list,
                             std::shared_ptr<arrow::Schema> result_schema,
                             std::shared_ptr<KernalBase>* out);
-  HashAggregateKernel(arrow::compute::FunctionContext* ctx,
+  HashAggregateKernel(arrow::compute::ExecContext* ctx,
                       std::vector<std::shared_ptr<arrow::Field>> input_field_list,
                       std::vector<std::shared_ptr<gandiva::Node>> action_list,
                       std::shared_ptr<arrow::Schema> result_schema);
@@ -408,15 +407,15 @@ class HashAggregateKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 
 class WindowRankKernel : public KernalBase {
  public:
-  WindowRankKernel(arrow::compute::FunctionContext* ctx,
+  WindowRankKernel(arrow::compute::ExecContext* ctx,
                    std::vector<std::shared_ptr<arrow::DataType>> type_list,
                    std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc);
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             std::string function_name,
                             std::vector<std::shared_ptr<arrow::DataType>> type_list,
                             std::shared_ptr<KernalBase>* out, bool desc);
@@ -435,7 +434,7 @@ class WindowRankKernel : public KernalBase {
 
  private:
   std::shared_ptr<WindowSortKernel::Impl> sorter_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::vector<ArrayList> input_cache_;
   std::vector<std::shared_ptr<arrow::DataType>> type_list_;
   bool desc_;
@@ -443,22 +442,22 @@ class WindowRankKernel : public KernalBase {
 
 /*class UniqueArrayKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<KernalBase>* out);
-  UniqueArrayKernel(arrow::compute::FunctionContext* ctx);
+  UniqueArrayKernel(arrow::compute::ExecContext* ctx);
   arrow::Status Evaluate(const std::shared_ptr<arrow::Array>& in) override;
   arrow::Status Finish(std::shared_ptr<arrow::Array>* out) override;
 
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };*/
 
 class ConditionedProbeArraysKernel : public KernalBase {
  public:
   static arrow::Status Make(
-      arrow::compute::FunctionContext* ctx,
+      arrow::compute::ExecContext* ctx,
       const std::vector<std::shared_ptr<arrow::Field>>& left_key_list,
       const std::vector<std::shared_ptr<arrow::Field>>& right_key_list,
       const std::shared_ptr<gandiva::Node>& func_node, int join_type,
@@ -467,7 +466,7 @@ class ConditionedProbeArraysKernel : public KernalBase {
       const std::shared_ptr<arrow::Schema>& result_schema,
       std::shared_ptr<KernalBase>* out);
   ConditionedProbeArraysKernel(
-      arrow::compute::FunctionContext* ctx,
+      arrow::compute::ExecContext* ctx,
       const std::vector<std::shared_ptr<arrow::Field>>& left_key_list,
       const std::vector<std::shared_ptr<arrow::Field>>& right_key_list,
       const std::shared_ptr<gandiva::Node>& func_node, int join_type,
@@ -483,12 +482,12 @@ class ConditionedProbeArraysKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 class ConditionedJoinArraysKernel : public KernalBase {
  public:
   static arrow::Status Make(
-      arrow::compute::FunctionContext* ctx,
+      arrow::compute::ExecContext* ctx,
       const std::vector<std::shared_ptr<arrow::Field>>& left_key_list,
       const std::vector<std::shared_ptr<arrow::Field>>& right_key_list,
       const std::shared_ptr<gandiva::Node>& func_node, int join_type,
@@ -497,7 +496,7 @@ class ConditionedJoinArraysKernel : public KernalBase {
       const std::shared_ptr<arrow::Schema>& result_schema,
       std::shared_ptr<KernalBase>* out);
   ConditionedJoinArraysKernel(
-      arrow::compute::FunctionContext* ctx,
+      arrow::compute::ExecContext* ctx,
       const std::vector<std::shared_ptr<arrow::Field>>& left_key_list,
       const std::vector<std::shared_ptr<arrow::Field>>& right_key_list,
       const std::shared_ptr<gandiva::Node>& func_node, int join_type,
@@ -513,18 +512,18 @@ class ConditionedJoinArraysKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 class WholeStageCodeGenKernel : public KernalBase {
  public:
   static arrow::Status Make(
-      arrow::compute::FunctionContext* ctx,
+      arrow::compute::ExecContext* ctx,
       const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
       std::shared_ptr<gandiva::Node> root_node,
       const std::vector<std::shared_ptr<arrow::Field>>& output_field_list,
       std::shared_ptr<KernalBase>* out);
   WholeStageCodeGenKernel(
-      arrow::compute::FunctionContext* ctx,
+      arrow::compute::ExecContext* ctx,
       const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
       std::shared_ptr<gandiva::Node> root_node,
       const std::vector<std::shared_ptr<arrow::Field>>& output_field_list);
@@ -537,17 +536,17 @@ class WholeStageCodeGenKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 class HashRelationKernel : public KernalBase {
  public:
   static arrow::Status Make(
-      arrow::compute::FunctionContext* ctx,
+      arrow::compute::ExecContext* ctx,
       const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
       std::shared_ptr<gandiva::Node> root_node,
       const std::vector<std::shared_ptr<arrow::Field>>& output_field_list,
       std::shared_ptr<KernalBase>* out);
-  HashRelationKernel(arrow::compute::FunctionContext* ctx,
+  HashRelationKernel(arrow::compute::ExecContext* ctx,
                      const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
                      std::shared_ptr<gandiva::Node> root_node,
                      const std::vector<std::shared_ptr<arrow::Field>>& output_field_list);
@@ -561,18 +560,18 @@ class HashRelationKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 class ConcatArrayListKernel : public KernalBase {
  public:
   static arrow::Status Make(
-      arrow::compute::FunctionContext* ctx,
+      arrow::compute::ExecContext* ctx,
       const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
       std::shared_ptr<gandiva::Node> root_node,
       const std::vector<std::shared_ptr<arrow::Field>>& output_field_list,
       std::shared_ptr<KernalBase>* out);
   ConcatArrayListKernel(
-      arrow::compute::FunctionContext* ctx,
+      arrow::compute::ExecContext* ctx,
       const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
       std::shared_ptr<gandiva::Node> root_node,
       const std::vector<std::shared_ptr<arrow::Field>>& output_field_list);
@@ -585,11 +584,11 @@ class ConcatArrayListKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 class ConditionedProbeKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             const gandiva::NodeVector& left_key_list,
                             const gandiva::NodeVector& right_key_list,
                             const gandiva::NodeVector& left_schema_list,
@@ -598,7 +597,7 @@ class ConditionedProbeKernel : public KernalBase {
                             const gandiva::NodeVector& result_schema,
                             const gandiva::NodeVector& hash_configuration_list,
                             int hash_relation_idx, std::shared_ptr<KernalBase>* out);
-  ConditionedProbeKernel(arrow::compute::FunctionContext* ctx,
+  ConditionedProbeKernel(arrow::compute::ExecContext* ctx,
                          const gandiva::NodeVector& left_key_list,
                          const gandiva::NodeVector& right_key_list,
                          const gandiva::NodeVector& left_schema_list,
@@ -620,11 +619,11 @@ class ConditionedProbeKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 class ConditionedMergeJoinKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             const gandiva::NodeVector& left_key_list,
                             const gandiva::NodeVector& right_key_list,
                             const gandiva::NodeVector& left_schema_list,
@@ -633,7 +632,7 @@ class ConditionedMergeJoinKernel : public KernalBase {
                             const gandiva::NodeVector& result_schema,
                             std::vector<int> hash_relation_idx,
                             std::shared_ptr<KernalBase>* out);
-  ConditionedMergeJoinKernel(arrow::compute::FunctionContext* ctx,
+  ConditionedMergeJoinKernel(arrow::compute::ExecContext* ctx,
                              const gandiva::NodeVector& left_key_list,
                              const gandiva::NodeVector& right_key_list,
                              const gandiva::NodeVector& left_schema_list,
@@ -654,15 +653,15 @@ class ConditionedMergeJoinKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 class ProjectKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             const gandiva::NodeVector& input_field_node_list,
                             const gandiva::NodeVector& project_list,
                             std::shared_ptr<KernalBase>* out);
-  ProjectKernel(arrow::compute::FunctionContext* ctx,
+  ProjectKernel(arrow::compute::ExecContext* ctx,
                 const gandiva::NodeVector& input_field_node_list,
                 const gandiva::NodeVector& project_list);
   arrow::Status MakeResultIterator(
@@ -678,15 +677,15 @@ class ProjectKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 class FilterKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             const gandiva::NodeVector& input_field_node_list,
                             const gandiva::NodePtr& condition,
                             std::shared_ptr<KernalBase>* out);
-  FilterKernel(arrow::compute::FunctionContext* ctx,
+  FilterKernel(arrow::compute::ExecContext* ctx,
                const gandiva::NodeVector& input_field_node_list,
                const gandiva::NodePtr& condition);
   arrow::Status MakeResultIterator(
@@ -702,14 +701,14 @@ class FilterKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 class ConcatArrayKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx,
                             std::vector<std::shared_ptr<arrow::DataType>> type_list,
                             std::shared_ptr<KernalBase>* out);
-  ConcatArrayKernel(arrow::compute::FunctionContext* ctx,
+  ConcatArrayKernel(arrow::compute::ExecContext* ctx,
                     std::vector<std::shared_ptr<arrow::DataType>> type_list);
   arrow::Status Evaluate(const ArrayList& in,
                          std::shared_ptr<arrow::Array>* out) override;
@@ -717,7 +716,7 @@ class ConcatArrayKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 }  // namespace extra
 }  // namespace arrowcompute

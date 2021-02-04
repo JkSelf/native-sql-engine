@@ -16,9 +16,8 @@
  */
 
 #include <arrow/array/concatenate.h>
-#include <arrow/compute/context.h>
-#include <arrow/compute/kernels/sort_to_indices.h>
-#include <arrow/compute/kernels/take.h>
+#include <arrow/util/bitmap_ops.h>
+#include <arrow/compute/api.h>
 #include <arrow/type.h>
 #include <arrow/type_fwd.h>
 #include <arrow/type_traits.h>
@@ -30,6 +29,7 @@
 #include <memory>
 #include <numeric>
 #include <vector>
+#include <cmath>
 
 #include "array_appender.h"
 #include "codegen/arrow_compute/ext/array_item_index.h"
@@ -74,7 +74,7 @@ using namespace sparkcolumnarplugin::precompile;
 class SortArraysToIndicesKernel::Impl {
  public:
   Impl() {}
-  Impl(arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
+  Impl(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
        std::shared_ptr<gandiva::Projector> key_projector,
        std::vector<std::shared_ptr<arrow::DataType>> projected_types,
        std::vector<std::shared_ptr<arrow::Field>> key_field_list,
@@ -175,7 +175,7 @@ class SortArraysToIndicesKernel::Impl {
 
  protected:
   std::shared_ptr<CodeGenBase> sorter;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::string signature_;
   std::vector<int> key_index_list_;
   std::shared_ptr<arrow::Schema> result_schema_;
@@ -306,7 +306,7 @@ using namespace sparkcolumnarplugin::precompile;
 
 class TypedSorterImpl : public CodeGenBase {
  public:
-  TypedSorterImpl(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {}
+  TypedSorterImpl(arrow::compute::ExecContext* ctx) : ctx_(ctx) {}
 
   arrow::Status Evaluate(const ArrayList& in, const ArrayList& projected_batch) override {
     num_batches_++;
@@ -366,7 +366,7 @@ class TypedSorterImpl : public CodeGenBase {
            projected_variables_str +
            R"(
   std::vector<int64_t> length_list_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   uint64_t num_batches_ = 0;
   uint64_t items_total_ = 0;
   uint64_t nulls_total_ = 0;
@@ -386,7 +386,7 @@ class TypedSorterImpl : public CodeGenBase {
 
   class SorterResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
-    SorterResultIterator(arrow::compute::FunctionContext* ctx,
+    SorterResultIterator(arrow::compute::ExecContext* ctx,
                        std::shared_ptr<FixedSizeBinaryArray> indices_in,
    )" + result_iter_param_define_str +
            R"(): ctx_(ctx), total_length_(indices_in->length()), indices_in_cache_(indices_in) {
@@ -430,11 +430,11 @@ class TypedSorterImpl : public CodeGenBase {
     ArrayItemIndexS* indices_begin_;
     const uint64_t total_length_;
     std::shared_ptr<arrow::Schema> result_schema_;
-    arrow::compute::FunctionContext* ctx_;
+    arrow::compute::ExecContext* ctx_;
   };
 };
 
-extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
+extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<CodeGenBase>* out) {
   *out = std::make_shared<TypedSorterImpl>(ctx);
 }
@@ -785,7 +785,7 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
 template <typename DATATYPE, typename CTYPE>
 class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
  public:
-  SortInplaceKernel(arrow::compute::FunctionContext* ctx,
+  SortInplaceKernel(arrow::compute::ExecContext* ctx,
                     std::shared_ptr<arrow::Schema> result_schema,
                     std::shared_ptr<gandiva::Projector> key_projector,
                     std::vector<bool> sort_directions, std::vector<bool> nulls_order,
@@ -971,8 +971,9 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
                                                          std::move(indices_buf));
       std::shared_ptr<arrow::Array> sort_out;
       arrow::compute::TakeOptions options;
-      RETURN_NOT_OK(arrow::compute::Take(ctx_, *concatenated_array_.get(),
-                                         *indices_out.get(), options, &sort_out));
+      auto maybe_sort_out = arrow::compute::Take(*concatenated_array_.get(),
+                                         *indices_out.get(), options, ctx_);
+      sort_out = *std::move(maybe_sort_out);
       *out = std::make_shared<SorterResultIterator>(ctx_, schema, sort_out, nulls_first_,
                                                     asc_);
     } else {
@@ -990,7 +991,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
   using ArrayType_0 = typename arrow::TypeTraits<DATATYPE>::ArrayType;
   arrow::ArrayVector cached_0_;
   std::shared_ptr<arrow::Array> concatenated_array_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<arrow::Schema> result_schema_;
   std::shared_ptr<gandiva::Projector> key_projector_;
   bool nulls_first_;
@@ -1002,7 +1003,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
 
   class SorterResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
-    SorterResultIterator(arrow::compute::FunctionContext* ctx,
+    SorterResultIterator(arrow::compute::ExecContext* ctx,
                          std::shared_ptr<arrow::Schema> result_schema,
                          std::shared_ptr<arrow::Array> result_arr, bool nulls_first,
                          bool asc)
@@ -1106,8 +1107,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         if (bitmap.AllSet()) {
           arrow::BitUtil::SetBitsTo(dst, offset, length, true);
         } else {
-          arrow::internal::CopyBitmap(bitmap.data, offset, length, dst, bitmap_offset,
-                                      false);
+          arrow::internal::CopyBitmap(bitmap.data, offset, length, dst, bitmap_offset);
         }
 
         // finally (if applicable) zero out any trailing bits
@@ -1172,7 +1172,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
     const uint64_t total_length_;
     const uint64_t nulls_total_;
     std::shared_ptr<arrow::Schema> result_schema_;
-    arrow::compute::FunctionContext* ctx_;
+    arrow::compute::ExecContext* ctx_;
     uint64_t batch_size_;
     bool nulls_first_;
     bool asc_;
@@ -1183,7 +1183,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
 template <typename DATATYPE, typename CTYPE>
 class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
  public:
-  SortOnekeyKernel(arrow::compute::FunctionContext* ctx,
+  SortOnekeyKernel(arrow::compute::ExecContext* ctx,
                    std::shared_ptr<arrow::Schema> result_schema,
                    std::shared_ptr<gandiva::Projector> key_projector,
                    std::vector<std::shared_ptr<arrow::Field>> key_field_list,
@@ -1440,7 +1440,8 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
     // initiate buffer for all arrays
     std::shared_ptr<arrow::Buffer> indices_buf;
     int64_t buf_size = items_total_ * sizeof(ArrayItemIndexS);
-    RETURN_NOT_OK(arrow::AllocateBuffer(ctx_->memory_pool(), buf_size, &indices_buf));
+    auto maybe_buffer = arrow::AllocateBuffer(buf_size, ctx_->memory_pool());
+    indices_buf = *std::move(maybe_buffer);
     ArrayItemIndexS* indices_begin =
         reinterpret_cast<ArrayItemIndexS*>(indices_buf->mutable_data());
     ArrayItemIndexS* indices_end = indices_begin + items_total_;
@@ -1468,7 +1469,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
   using ArrayType_key = typename arrow::TypeTraits<DATATYPE>::ArrayType;
   std::vector<std::shared_ptr<ArrayType_key>> cached_key_;
   std::vector<arrow::ArrayVector> cached_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<arrow::Schema> result_schema_;
   std::shared_ptr<gandiva::Projector> key_projector_;
   bool nulls_first_;
@@ -1494,7 +1495,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
   };
   class SorterResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
-    SorterResultIterator(arrow::compute::FunctionContext* ctx,
+    SorterResultIterator(arrow::compute::ExecContext* ctx,
                          std::shared_ptr<arrow::Schema> schema,
                          std::shared_ptr<FixedSizeBinaryArray> indices_in,
                          std::vector<arrow::ArrayVector>& cached)
@@ -1562,7 +1563,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
     uint64_t offset_ = 0;
     const uint64_t total_length_;
     std::shared_ptr<arrow::Schema> schema_;
-    arrow::compute::FunctionContext* ctx_;
+    arrow::compute::ExecContext* ctx_;
     uint64_t batch_size_;
     int col_num_;
     ArrayItemIndexS* indices_begin_;
@@ -1575,7 +1576,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
 };
 
 arrow::Status SortArraysToIndicesKernel::Make(
-    arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
     gandiva::NodeVector sort_key_node,
     std::vector<std::shared_ptr<arrow::Field>> key_field_list,
     std::vector<bool> sort_directions, std::vector<bool> nulls_order, bool NaN_check,
@@ -1600,7 +1601,7 @@ arrow::Status SortArraysToIndicesKernel::Make(
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)
 SortArraysToIndicesKernel::SortArraysToIndicesKernel(
-    arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
     gandiva::NodeVector sort_key_node,
     std::vector<std::shared_ptr<arrow::Field>> key_field_list,
     std::vector<bool> sort_directions, std::vector<bool> nulls_order, bool NaN_check,

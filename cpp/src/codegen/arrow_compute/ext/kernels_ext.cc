@@ -21,7 +21,7 @@
 #include <arrow/array/builder_binary.h>
 #include <arrow/array/builder_primitive.h>
 #include <arrow/array/concatenate.h>
-#include <arrow/compute/context.h>
+#include <arrow/compute/api.h>
 #include <arrow/compute/kernel.h>
 #include <arrow/compute/kernels/count.h>
 #include <arrow/compute/kernels/hash.h>
@@ -66,7 +66,7 @@ using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 ///////////////  SplitArrayListWithAction  ////////////////
 class SplitArrayListWithActionKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx, std::vector<std::string> action_name_list,
+  Impl(arrow::compute::ExecContext* ctx, std::vector<std::string> action_name_list,
        std::vector<std::shared_ptr<arrow::DataType>> type_list)
       : ctx_(ctx), action_name_list_(action_name_list) {
     InitActionList(type_list);
@@ -195,14 +195,14 @@ class SplitArrayListWithActionKernel::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::vector<std::string> action_name_list_;
   std::vector<std::shared_ptr<extra::ActionBase>> action_list_;
 
   class SplitArrayWithActionResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
     SplitArrayWithActionResultIterator(
-        arrow::compute::FunctionContext* ctx, uint64_t total_length,
+        arrow::compute::ExecContext* ctx, uint64_t total_length,
         std::function<arrow::Status(uint64_t offset, uint64_t length,
                                     std::shared_ptr<arrow::RecordBatch>* out)>
             eval_func)
@@ -233,7 +233,7 @@ class SplitArrayListWithActionKernel::Impl {
     }
 
    private:
-    arrow::compute::FunctionContext* ctx_;
+    arrow::compute::ExecContext* ctx_;
     std::function<arrow::Status(uint64_t offset, uint64_t length,
                                 std::shared_ptr<arrow::RecordBatch>* out)>
         eval_func_;
@@ -244,7 +244,7 @@ class SplitArrayListWithActionKernel::Impl {
 };
 
 arrow::Status SplitArrayListWithActionKernel::Make(
-    arrow::compute::FunctionContext* ctx, std::vector<std::string> action_name_list,
+    arrow::compute::ExecContext* ctx, std::vector<std::string> action_name_list,
     std::vector<std::shared_ptr<arrow::DataType>> type_list,
     std::shared_ptr<KernalBase>* out) {
   *out =
@@ -253,7 +253,7 @@ arrow::Status SplitArrayListWithActionKernel::Make(
 }
 
 SplitArrayListWithActionKernel::SplitArrayListWithActionKernel(
-    arrow::compute::FunctionContext* ctx, std::vector<std::string> action_name_list,
+    arrow::compute::ExecContext* ctx, std::vector<std::string> action_name_list,
     std::vector<std::shared_ptr<arrow::DataType>> type_list) {
   impl_.reset(new Impl(ctx, action_name_list, type_list));
   kernel_name_ = "SplitArrayListWithActionKernel";
@@ -277,7 +277,7 @@ arrow::Status SplitArrayListWithActionKernel::MakeResultIterator(
 ///////////////  UniqueArray  ////////////////
 /*class UniqueArrayKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {}
+  Impl(arrow::compute::ExecContext* ctx) : ctx_(ctx) {}
   ~Impl() {}
   arrow::Status Evaluate(const std::shared_ptr<arrow::Array>& in) {
     std::shared_ptr<arrow::Array> out;
@@ -301,17 +301,17 @@ arrow::Status SplitArrayListWithActionKernel::MakeResultIterator(
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<ArrayBuilderImplBase> builder;
 };
 
-arrow::Status UniqueArrayKernel::Make(arrow::compute::FunctionContext* ctx,
+arrow::Status UniqueArrayKernel::Make(arrow::compute::ExecContext* ctx,
                                       std::shared_ptr<KernalBase>* out) {
   *out = std::make_shared<UniqueArrayKernel>(ctx);
   return arrow::Status::OK();
 }
 
-UniqueArrayKernel::UniqueArrayKernel(arrow::compute::FunctionContext* ctx) {
+UniqueArrayKernel::UniqueArrayKernel(arrow::compute::ExecContext* ctx) {
   impl_.reset(new Impl(ctx));
   kernel_name_ = "UniqueArrayKernel";
 }
@@ -339,7 +339,7 @@ arrow::Status UniqueArrayKernel::Finish(std::shared_ptr<arrow::Array>* out) {
 ///////////////  SumArray  ////////////////
 class SumArrayKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::DataType> data_type)
+  Impl(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> data_type)
       : ctx_(ctx), data_type_(data_type) {}
   virtual ~Impl() {}
   arrow::Status Evaluate(const ArrayList& in) {
@@ -380,20 +380,20 @@ class SumArrayKernel::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<arrow::DataType> data_type_;
   std::shared_ptr<arrow::DataType> res_data_type_;
   std::vector<std::shared_ptr<arrow::Scalar>> scalar_list_;
 };
 
-arrow::Status SumArrayKernel::Make(arrow::compute::FunctionContext* ctx,
+arrow::Status SumArrayKernel::Make(arrow::compute::ExecContext* ctx,
                                    std::shared_ptr<arrow::DataType> data_type,
                                    std::shared_ptr<KernalBase>* out) {
   *out = std::make_shared<SumArrayKernel>(ctx, data_type);
   return arrow::Status::OK();
 }
 
-SumArrayKernel::SumArrayKernel(arrow::compute::FunctionContext* ctx,
+SumArrayKernel::SumArrayKernel(arrow::compute::ExecContext* ctx,
                                std::shared_ptr<arrow::DataType> data_type) {
   impl_.reset(new Impl(ctx, data_type));
   kernel_name_ = "SumArrayKernel";
@@ -408,7 +408,7 @@ arrow::Status SumArrayKernel::Finish(ArrayList* out) { return impl_->Finish(out)
 ///////////////  CountArray  ////////////////
 class CountArrayKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::DataType> data_type)
+  Impl(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> data_type)
       : ctx_(ctx), data_type_(data_type) {}
   virtual ~Impl() {}
   arrow::Status Evaluate(const ArrayList& in) {
@@ -442,19 +442,19 @@ class CountArrayKernel::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<arrow::DataType> data_type_;
   std::vector<std::shared_ptr<arrow::Scalar>> scalar_list_;
 };
 
-arrow::Status CountArrayKernel::Make(arrow::compute::FunctionContext* ctx,
+arrow::Status CountArrayKernel::Make(arrow::compute::ExecContext* ctx,
                                      std::shared_ptr<arrow::DataType> data_type,
                                      std::shared_ptr<KernalBase>* out) {
   *out = std::make_shared<CountArrayKernel>(ctx, data_type);
   return arrow::Status::OK();
 }
 
-CountArrayKernel::CountArrayKernel(arrow::compute::FunctionContext* ctx,
+CountArrayKernel::CountArrayKernel(arrow::compute::ExecContext* ctx,
                                    std::shared_ptr<arrow::DataType> data_type) {
   impl_.reset(new Impl(ctx, data_type));
   kernel_name_ = "CountArrayKernel";
@@ -469,7 +469,7 @@ arrow::Status CountArrayKernel::Finish(ArrayList* out) { return impl_->Finish(ou
 ///////////////  SumCountArray  ////////////////
 class SumCountArrayKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::DataType> data_type)
+  Impl(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> data_type)
       : ctx_(ctx), data_type_(data_type) {}
   virtual ~Impl() {}
   arrow::Status Evaluate(const ArrayList& in) {
@@ -527,21 +527,21 @@ class SumCountArrayKernel::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<arrow::DataType> res_data_type_;
   std::shared_ptr<arrow::DataType> data_type_;
   std::vector<std::shared_ptr<arrow::Scalar>> sum_scalar_list_;
   std::vector<std::shared_ptr<arrow::Scalar>> cnt_scalar_list_;
 };
 
-arrow::Status SumCountArrayKernel::Make(arrow::compute::FunctionContext* ctx,
+arrow::Status SumCountArrayKernel::Make(arrow::compute::ExecContext* ctx,
                                         std::shared_ptr<arrow::DataType> data_type,
                                         std::shared_ptr<KernalBase>* out) {
   *out = std::make_shared<SumCountArrayKernel>(ctx, data_type);
   return arrow::Status::OK();
 }
 
-SumCountArrayKernel::SumCountArrayKernel(arrow::compute::FunctionContext* ctx,
+SumCountArrayKernel::SumCountArrayKernel(arrow::compute::ExecContext* ctx,
                                          std::shared_ptr<arrow::DataType> data_type) {
   impl_.reset(new Impl(ctx, data_type));
   kernel_name_ = "SumCountArrayKernel";
@@ -556,7 +556,7 @@ arrow::Status SumCountArrayKernel::Finish(ArrayList* out) { return impl_->Finish
 ///////////////  AvgByCountArray  ////////////////
 class AvgByCountArrayKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::DataType> data_type)
+  Impl(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> data_type)
       : ctx_(ctx), data_type_(data_type) {}
   virtual ~Impl() {}
   arrow::Status Evaluate(const ArrayList& in) {
@@ -621,7 +621,7 @@ class AvgByCountArrayKernel::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<arrow::DataType> data_type_;
   std::shared_ptr<arrow::DataType> cnt_res_data_type_;
   std::shared_ptr<arrow::DataType> sum_res_data_type_;
@@ -629,14 +629,14 @@ class AvgByCountArrayKernel::Impl {
   std::vector<std::shared_ptr<arrow::Scalar>> cnt_scalar_list_;
 };  // namespace extra
 
-arrow::Status AvgByCountArrayKernel::Make(arrow::compute::FunctionContext* ctx,
+arrow::Status AvgByCountArrayKernel::Make(arrow::compute::ExecContext* ctx,
                                           std::shared_ptr<arrow::DataType> data_type,
                                           std::shared_ptr<KernalBase>* out) {
   *out = std::make_shared<AvgByCountArrayKernel>(ctx, data_type);
   return arrow::Status::OK();
 }
 
-AvgByCountArrayKernel::AvgByCountArrayKernel(arrow::compute::FunctionContext* ctx,
+AvgByCountArrayKernel::AvgByCountArrayKernel(arrow::compute::ExecContext* ctx,
                                              std::shared_ptr<arrow::DataType> data_type) {
   impl_.reset(new Impl(ctx, data_type));
   kernel_name_ = "AvgByCountArrayKernel";
@@ -651,7 +651,7 @@ arrow::Status AvgByCountArrayKernel::Finish(ArrayList* out) { return impl_->Fini
 ///////////////  MinArray  ////////////////
 class MinArrayKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::DataType> data_type)
+  Impl(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> data_type)
       : ctx_(ctx), data_type_(data_type) {}
   virtual ~Impl() {}
   arrow::Status Evaluate(const ArrayList& in) {
@@ -701,20 +701,20 @@ class MinArrayKernel::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<arrow::DataType> data_type_;
   std::vector<std::shared_ptr<arrow::Scalar>> scalar_list_;
   std::unique_ptr<arrow::ArrayBuilder> array_builder_;
 };
 
-arrow::Status MinArrayKernel::Make(arrow::compute::FunctionContext* ctx,
+arrow::Status MinArrayKernel::Make(arrow::compute::ExecContext* ctx,
                                    std::shared_ptr<arrow::DataType> data_type,
                                    std::shared_ptr<KernalBase>* out) {
   *out = std::make_shared<MinArrayKernel>(ctx, data_type);
   return arrow::Status::OK();
 }
 
-MinArrayKernel::MinArrayKernel(arrow::compute::FunctionContext* ctx,
+MinArrayKernel::MinArrayKernel(arrow::compute::ExecContext* ctx,
                                std::shared_ptr<arrow::DataType> data_type) {
   impl_.reset(new Impl(ctx, data_type));
   kernel_name_ = "MinArrayKernel";
@@ -729,7 +729,7 @@ arrow::Status MinArrayKernel::Finish(ArrayList* out) { return impl_->Finish(out)
 ///////////////  MaxArray  ////////////////
 class MaxArrayKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::DataType> data_type)
+  Impl(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> data_type)
       : ctx_(ctx), data_type_(data_type) {}
   virtual ~Impl() {}
   arrow::Status Evaluate(const ArrayList& in) {
@@ -779,20 +779,20 @@ class MaxArrayKernel::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<arrow::DataType> data_type_;
   std::vector<std::shared_ptr<arrow::Scalar>> scalar_list_;
   std::unique_ptr<arrow::ArrayBuilder> array_builder_;
 };
 
-arrow::Status MaxArrayKernel::Make(arrow::compute::FunctionContext* ctx,
+arrow::Status MaxArrayKernel::Make(arrow::compute::ExecContext* ctx,
                                    std::shared_ptr<arrow::DataType> data_type,
                                    std::shared_ptr<KernalBase>* out) {
   *out = std::make_shared<MaxArrayKernel>(ctx, data_type);
   return arrow::Status::OK();
 }
 
-MaxArrayKernel::MaxArrayKernel(arrow::compute::FunctionContext* ctx,
+MaxArrayKernel::MaxArrayKernel(arrow::compute::ExecContext* ctx,
                                std::shared_ptr<arrow::DataType> data_type) {
   impl_.reset(new Impl(ctx, data_type));
   kernel_name_ = "MaxArrayKernel";
@@ -807,12 +807,12 @@ arrow::Status MaxArrayKernel::Finish(ArrayList* out) { return impl_->Finish(out)
 ///////////////  StddevSampPartialArray  ////////////////
 class StddevSampPartialArrayKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::DataType> data_type)
+  Impl(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> data_type)
       : ctx_(ctx), data_type_(data_type) {}
   virtual ~Impl() {}
 
   template <typename ValueType>
-  arrow::Status getM2(arrow::compute::FunctionContext* ctx,
+  arrow::Status getM2(arrow::compute::ExecContext* ctx,
                       const arrow::compute::Datum& value,
                       const arrow::compute::Datum& mean, arrow::compute::Datum* out) {
     using MeanCType = typename arrow::TypeTraits<arrow::DoubleType>::CType;
@@ -839,7 +839,7 @@ class StddevSampPartialArrayKernel::Impl {
     return arrow::Status::OK();
   }
 
-  arrow::Status M2(arrow::compute::FunctionContext* ctx, const arrow::Array& array,
+  arrow::Status M2(arrow::compute::ExecContext* ctx, const arrow::Array& array,
                    const arrow::compute::Datum& mean, arrow::compute::Datum* out) {
     arrow::compute::Datum value = array.data();
     auto data_type = value.type();
@@ -963,7 +963,7 @@ class StddevSampPartialArrayKernel::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<arrow::DataType> data_type_;
   std::shared_ptr<arrow::DataType> sum_res_data_type_;
   std::shared_ptr<arrow::DataType> cnt_res_data_type_;
@@ -976,14 +976,14 @@ class StddevSampPartialArrayKernel::Impl {
 };
 
 arrow::Status StddevSampPartialArrayKernel::Make(
-    arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::DataType> data_type,
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> data_type,
     std::shared_ptr<KernalBase>* out) {
   *out = std::make_shared<StddevSampPartialArrayKernel>(ctx, data_type);
   return arrow::Status::OK();
 }
 
 StddevSampPartialArrayKernel::StddevSampPartialArrayKernel(
-    arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::DataType> data_type) {
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> data_type) {
   impl_.reset(new Impl(ctx, data_type));
   kernel_name_ = "StddevSampPartialArrayKernel";
 }
@@ -999,11 +999,11 @@ arrow::Status StddevSampPartialArrayKernel::Finish(ArrayList* out) {
 ///////////////  StddevSampFinalArray  ////////////////
 class StddevSampFinalArrayKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::DataType> data_type)
+  Impl(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> data_type)
       : ctx_(ctx), data_type_(data_type) {}
   virtual ~Impl() {}
 
-  arrow::Status getAvgM2(arrow::compute::FunctionContext* ctx,
+  arrow::Status getAvgM2(arrow::compute::ExecContext* ctx,
                          const arrow::compute::Datum& cnt_value,
                          const arrow::compute::Datum& avg_value,
                          const arrow::compute::Datum& m2_value,
@@ -1053,7 +1053,7 @@ class StddevSampFinalArrayKernel::Impl {
     return arrow::Status::OK();
   }
 
-  arrow::Status updateValue(arrow::compute::FunctionContext* ctx,
+  arrow::Status updateValue(arrow::compute::ExecContext* ctx,
                             const arrow::Array& cnt_array, const arrow::Array& avg_array,
                             const arrow::Array& m2_array, arrow::compute::Datum* avg_out,
                             arrow::compute::Datum* m2_out) {
@@ -1133,7 +1133,7 @@ class StddevSampFinalArrayKernel::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<arrow::DataType> data_type_;
   std::shared_ptr<arrow::DataType> cnt_res_data_type_;
   std::vector<std::shared_ptr<arrow::Scalar>> cnt_scalar_list_;
@@ -1141,7 +1141,7 @@ class StddevSampFinalArrayKernel::Impl {
   std::vector<std::shared_ptr<arrow::Scalar>> m2_scalar_list_;
 };
 
-arrow::Status StddevSampFinalArrayKernel::Make(arrow::compute::FunctionContext* ctx,
+arrow::Status StddevSampFinalArrayKernel::Make(arrow::compute::ExecContext* ctx,
                                                std::shared_ptr<arrow::DataType> data_type,
                                                std::shared_ptr<KernalBase>* out) {
   *out = std::make_shared<StddevSampFinalArrayKernel>(ctx, data_type);
@@ -1149,7 +1149,7 @@ arrow::Status StddevSampFinalArrayKernel::Make(arrow::compute::FunctionContext* 
 }
 
 StddevSampFinalArrayKernel::StddevSampFinalArrayKernel(
-    arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::DataType> data_type) {
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> data_type) {
   impl_.reset(new Impl(ctx, data_type));
   kernel_name_ = "StddevSampFinalArrayKernel";
 }
@@ -1176,7 +1176,7 @@ class EncodeArrayKernel::Impl {
 template <typename InType, typename MemoTableType>
 class EncodeArrayTypedImpl : public EncodeArrayKernel::Impl {
  public:
-  EncodeArrayTypedImpl(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  EncodeArrayTypedImpl(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
     hash_table_ = std::make_shared<MemoTableType>(ctx_->memory_pool());
     builder_ = std::make_shared<arrow::Int32Builder>(ctx_->memory_pool());
   }
@@ -1213,18 +1213,18 @@ class EncodeArrayTypedImpl : public EncodeArrayKernel::Impl {
 
  private:
   using ArrayType = typename arrow::TypeTraits<InType>::ArrayType;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<MemoTableType> hash_table_;
   std::shared_ptr<arrow::Int32Builder> builder_;
 };
 
-arrow::Status EncodeArrayKernel::Make(arrow::compute::FunctionContext* ctx,
+arrow::Status EncodeArrayKernel::Make(arrow::compute::ExecContext* ctx,
                                       std::shared_ptr<KernalBase>* out) {
   *out = std::make_shared<EncodeArrayKernel>(ctx);
   return arrow::Status::OK();
 }
 
-EncodeArrayKernel::EncodeArrayKernel(arrow::compute::FunctionContext* ctx) {
+EncodeArrayKernel::EncodeArrayKernel(arrow::compute::ExecContext* ctx) {
   ctx_ = ctx;
   kernel_name_ = "EncodeArrayKernel";
 }
@@ -1274,7 +1274,7 @@ arrow::Status EncodeArrayKernel::Evaluate(const std::shared_ptr<arrow::Array>& i
 ///////////////  HashAggrArray  ////////////////
 class HashArrayKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx,
+  Impl(arrow::compute::ExecContext* ctx,
        std::vector<std::shared_ptr<arrow::DataType>> type_list)
       : ctx_(ctx) {
     // create a new result array type here
@@ -1331,14 +1331,14 @@ class HashArrayKernel::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<gandiva::Projector> projector;
   std::shared_ptr<arrow::Schema> schema_;
   arrow::MemoryPool* pool_;
 };
 
 arrow::Status HashArrayKernel::Make(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<arrow::DataType>> type_list,
     std::shared_ptr<KernalBase>* out) {
   *out = std::make_shared<HashArrayKernel>(ctx, type_list);
@@ -1346,7 +1346,7 @@ arrow::Status HashArrayKernel::Make(
 }
 
 HashArrayKernel::HashArrayKernel(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<arrow::DataType>> type_list) {
   impl_.reset(new Impl(ctx, type_list));
   kernel_name_ = "HashArrayKernel";
@@ -1360,7 +1360,7 @@ arrow::Status HashArrayKernel::Evaluate(const ArrayList& in,
 ///////////////  ConcatArray  ////////////////
 class ConcatArrayKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx,
+  Impl(arrow::compute::ExecContext* ctx,
        std::vector<std::shared_ptr<arrow::DataType>> type_list)
       : ctx_(ctx) {
     pool_ = ctx_->memory_pool();
@@ -1396,13 +1396,13 @@ class ConcatArrayKernel::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::unique_ptr<arrow::StringBuilder> builder_;
   arrow::MemoryPool* pool_;
 };
 
 arrow::Status ConcatArrayKernel::Make(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<arrow::DataType>> type_list,
     std::shared_ptr<KernalBase>* out) {
   *out = std::make_shared<ConcatArrayKernel>(ctx, type_list);
@@ -1410,7 +1410,7 @@ arrow::Status ConcatArrayKernel::Make(
 }
 
 ConcatArrayKernel::ConcatArrayKernel(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<arrow::DataType>> type_list) {
   impl_.reset(new Impl(ctx, type_list));
   kernel_name_ = "ConcatArrayKernel";
@@ -1424,7 +1424,7 @@ arrow::Status ConcatArrayKernel::Evaluate(const ArrayList& in,
 ///////////////  ConcatArray  ////////////////
 class CachedRelationKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
+  Impl(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
        std::vector<std::shared_ptr<arrow::Field>> key_field_list, int result_type)
       : ctx_(ctx),
         result_schema_(result_schema),
@@ -1484,7 +1484,7 @@ class CachedRelationKernel::Impl {
   int col_num_;
   int result_type_;
   arrow::MemoryPool* pool_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::unique_ptr<arrow::StringBuilder> builder_;
   std::vector<std::shared_ptr<arrow::Field>> key_field_list_;
   std::shared_ptr<arrow::Schema> result_schema_;
@@ -1509,7 +1509,7 @@ class CachedRelationKernel::Impl {
 };
 
 arrow::Status CachedRelationKernel::Make(
-    arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
     std::vector<std::shared_ptr<arrow::Field>> key_field_list, int result_type,
     std::shared_ptr<KernalBase>* out) {
   *out = std::make_shared<CachedRelationKernel>(ctx, result_schema, key_field_list,
@@ -1518,7 +1518,7 @@ arrow::Status CachedRelationKernel::Make(
 }
 
 CachedRelationKernel::CachedRelationKernel(
-    arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
     std::vector<std::shared_ptr<arrow::Field>> key_field_list, int result_type) {
   impl_.reset(new Impl(ctx, result_schema, key_field_list, result_type));
   kernel_name_ = "CachedRelationKernel";
@@ -1539,7 +1539,7 @@ std::string CachedRelationKernel::GetSignature() { return ""; }
 ///////////////  ConcatArrayList  ////////////////
 class ConcatArrayListKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx,
+  Impl(arrow::compute::ExecContext* ctx,
        const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
        std::shared_ptr<gandiva::Node> root_node,
        const std::vector<std::shared_ptr<arrow::Field>>& output_field_list)
@@ -1568,13 +1568,13 @@ class ConcatArrayListKernel::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::vector<arrow::ArrayVector> cached_;
   int total_num_row_ = 0;
   int total_num_batch_ = 0;
   class ConcatArrayListResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
-    ConcatArrayListResultIterator(arrow::compute::FunctionContext* ctx,
+    ConcatArrayListResultIterator(arrow::compute::ExecContext* ctx,
                                   std::shared_ptr<arrow::Schema> result_schema,
                                   const std::vector<arrow::ArrayVector>& cached)
         : ctx_(ctx), result_schema_(result_schema), cached_(cached) {
@@ -1626,7 +1626,7 @@ class ConcatArrayListKernel::Impl {
     }
 
    private:
-    arrow::compute::FunctionContext* ctx_;
+    arrow::compute::ExecContext* ctx_;
     std::vector<arrow::ArrayVector> cached_;
     std::shared_ptr<arrow::Schema> result_schema_;
     int batch_size_;
@@ -1636,7 +1636,7 @@ class ConcatArrayListKernel::Impl {
 };
 
 arrow::Status ConcatArrayListKernel::Make(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
     std::shared_ptr<gandiva::Node> root_node,
     const std::vector<std::shared_ptr<arrow::Field>>& output_field_list,
@@ -1647,7 +1647,7 @@ arrow::Status ConcatArrayListKernel::Make(
 }
 
 ConcatArrayListKernel::ConcatArrayListKernel(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
     std::shared_ptr<gandiva::Node> root_node,
     const std::vector<std::shared_ptr<arrow::Field>>& output_field_list) {
