@@ -25,16 +25,19 @@ case class ArrowColumnarToRowExec(child: SparkPlan) extends UnaryExecNode {
   override def outputOrdering: Seq[SortOrder] = child.outputOrdering
 
   override def doExecute(): RDD[InternalRow] = {
-    val jniWrapper = new ArrowColumnarToRowJniWrapper()
-    var arrowSchema: Array[Byte] = null
-
-    def serializeSchema(fields: Seq[Field]): Array[Byte] = {
-      val schema = new Schema(fields.asJava)
-      ConverterUtils.getSchemaBytesBuf(schema)
-    }
 
 
     child.executeColumnar().mapPartitions { batches =>
+      // TODO:: pass the jni jniWrapper and arrowSchema  and serializeSchema method by broadcast ?
+      // currently only for debug.
+      val jniWrapper = new ArrowColumnarToRowJniWrapper()
+      var arrowSchema: Array[Byte] = null
+
+      def serializeSchema(fields: Seq[Field]): Array[Byte] = {
+        val schema = new Schema(fields.asJava)
+        ConverterUtils.getSchemaBytesBuf(schema)
+      }
+
       batches.flatMap { batch =>
         if (batch.numRows == 0 || batch.numCols == 0) {
           logInfo(s"Skip ColumnarBatch of ${batch.numRows} rows, ${batch.numCols} cols")
@@ -46,6 +49,7 @@ case class ArrowColumnarToRowExec(child: SparkPlan) extends UnaryExecNode {
           (0 until batch.numCols).foreach { idx =>
             val column = batch.column(idx).asInstanceOf[ArrowWritableColumnVector]
             fields += column.getValueVector.getField
+            logInfo("the field name in scala is " + column.getValueVector.getField.getName())
             column.getValueVector
               .getBuffers(false)
               .foreach { buffer =>
@@ -66,7 +70,11 @@ case class ArrowColumnarToRowExec(child: SparkPlan) extends UnaryExecNode {
             override def hasNext: Boolean = {
               jniWrapper.nativeHasNext(instanceID)
             }
-            override def next: UnsafeRow = jniWrapper.nativeNext(instanceID)
+            override def next: UnsafeRow = {
+              val unsafeRow = jniWrapper.nativeNext(instanceID)
+
+              unsafeRow
+            }
           }
         }
       }

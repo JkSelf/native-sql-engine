@@ -1361,8 +1361,6 @@ JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrap
 JNIEXPORT jlong JNICALL Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeConvertColumnarToRow(
     JNIEnv* env, jobject, jbyteArray schema_arr,
      jint num_rows, jlongArray buf_addrs, jlongArray buf_sizes, jlong memory_pool_id) {
-  printf("the native method nativeConvertColumnarToRow is running \n");
-  std::cout << "the native method nativeConvertColumnarToRow is running" << "\n";
   if (schema_arr == NULL) {
     env->ThrowNew(illegal_argument_exception_class,
                   std::string("Native convert columnar to row schema can't be null").c_str());
@@ -1386,7 +1384,7 @@ JNIEXPORT jlong JNICALL Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapp
         std::string("Native convert columnar to row: length of buf_addrs and buf_sizes mismatch").c_str());
     return -1;
   }
-
+  
   std::shared_ptr<arrow::Schema> schema;
   // ValueOrDie in MakeSchema
   MakeSchema(env, schema_arr, &schema);
@@ -1432,6 +1430,18 @@ JNIEXPORT jlong JNICALL Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapp
             .c_str());
       return -1;
     }
+
+    status = unsafe_row_writer_reader->Write();
+
+    if (!status.ok()) {
+      env->ThrowNew(
+        illegal_argument_exception_class,
+        std::string("Native convert columnar to row: UnsafeRowWriterAndReader write failed, error message is " +
+                    status.message())
+            .c_str());
+      return -1;
+    }
+
     result = unsafe_writer_and_reader_holder_.Insert(std::move(unsafe_row_writer_reader));
 
   } catch (const std::runtime_error& error) {

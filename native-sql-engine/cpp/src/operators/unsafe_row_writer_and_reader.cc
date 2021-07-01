@@ -17,6 +17,8 @@
 
 #include "operators/unsafe_row_writer_and_reader.h"
 
+#include <iostream>
+
 namespace sparkcolumnarplugin {
 namespace unsaferow {
 
@@ -35,9 +37,9 @@ namespace unsaferow {
   }
 
   arrow::Status UnsafeRowWriterAndReader::Init() {
-    printf("call the init method of unsafe row writer and reader");
     int64_t num_rows = rb_->num_rows();
     num_cols_ = rb_->num_columns();
+ 
     // Calculate the initial size 
     nullBitsetWidthInBytes_ = CalculateBitSetWidthInBytes(num_cols_);
     int64_t fixedSize = nullBitsetWidthInBytes_ + 8 * num_cols_; // not contain the variable size
@@ -49,10 +51,10 @@ namespace unsaferow {
       int64_t new_size = fixedSize + num_variable_cols * 32; // 32 is same with vanilla spark.
       ARROW_ASSIGN_OR_RAISE(
         auto buffer,
-        arrow::AllocateResizableBuffer(arrow::BitUtil::BytesForBits(fixedSize),
+        arrow::AllocateResizableBuffer(arrow::BitUtil::BytesForBits(new_size),
                                              memory_pool_));
-        buffers_[i] = std::move(buffer);
-        buffer_cursor_[i] = fixedSize;                         
+      buffers_.push_back(std::move(buffer));                                   
+      buffer_cursor_.push_back(fixedSize);                         
     }
 
     row_cursor_ = num_rows - 1;
@@ -107,6 +109,7 @@ namespace unsaferow {
   arrow::Status WriteValue(std::shared_ptr<arrow::ResizableBuffer> buffer, 
     int64_t offset, int32_t index, std::shared_ptr<arrow::Array> array, int64_t currentCursor,
     int64_t* updatedCursor) {
+    // std::cout << "begin call the WriteValue method and the data type is " + array->type_id() << "\n";
     auto data = buffer->mutable_data();
     // Write the value into the buffer
     switch(array->type_id()) {
@@ -114,54 +117,69 @@ namespace unsaferow {
         {
           // Boolean type
           auto boolArray = std::static_pointer_cast<arrow::BooleanArray>(array);
+          std::cout << "begin set the boolean type" << "\n";
           memset(data + offset, boolArray->Value(index), sizeof(bool));
+          std::cout << "end set the boolean type" << "\n";
           break;
         }
       case arrow::Int8Type::type_id:
         {
           // Byte type
           auto int8Array = std::static_pointer_cast<arrow::Int8Array>(array);
+          std::cout << "begin set the byte type" << "\n";
           memset(data + offset, int8Array->Value(index), sizeof(int8_t));
+          std::cout << "end set the byte type" << "\n";
           break;
         }
       case arrow::Int16Type::type_id:
         {
           // Short type
           auto int16Array = std::static_pointer_cast<arrow::Int16Array>(array);
+          std::cout << "begin set the short type" << "\n";
           memset(data + offset, int16Array->Value(index), sizeof(int16_t));
+          std::cout << "end set the short type" << "\n";
           break;
         }
       case arrow::Int32Type::type_id:
         {
-          // Short type
+          // Integer type
           auto int32Array = std::static_pointer_cast<arrow::Int32Array>(array);
+          std::cout << "begin set the Integer type" << "\n";
           memset(data + offset, int32Array->Value(index), sizeof(int32_t));
+          std::cout << "end set the Integer type" << "\n";
           break;
         }
       case arrow::Int64Type::type_id:
         { 
           // Long type
           auto int64Array = std::static_pointer_cast<arrow::Int64Array>(array);
+          std::cout << "begin set the Long type" << "\n";
           memset(data + offset, int64Array->Value(index), sizeof(int64_t));
+          std::cout << "end set the Long type" << "\n";
           break;
         }
       case arrow::FloatType::type_id:
         { 
           // Float type
           auto floatArray = std::static_pointer_cast<arrow::FloatArray>(array);
+          std::cout << "begin set the Float type" << "\n";
           memset(data + offset, floatArray->Value(index), sizeof(float));
+          std::cout << "end set the Float type" << "\n";
           break;
         }
       case arrow::DoubleType::type_id:
         { 
           // Double type
           auto doubleArray = std::static_pointer_cast<arrow::DoubleArray>(array);
+          std::cout << "begin set the Double type" << "\n";
           memset(data + offset, doubleArray->Value(index), sizeof(double));
+          std::cout << "end set the Double type" << "\n";
           break;
         }
       case arrow::BinaryType::type_id:
         {
           // Binary type
+          std::cout << "begin set the binary type" << "\n";
           auto binaryArray = std::static_pointer_cast<arrow::BinaryArray>(array);
           using offset_type = typename arrow::BinaryType::offset_type;
           offset_type length;
@@ -177,12 +195,14 @@ namespace unsaferow {
           memset(data + offset, offsetAndSize, sizeof(int64_t));
           // Update the cursor of the buffer.
           *updatedCursor = currentCursor + roundedSize;
+           std::cout << "end set the binary type" << "\n";
 
           break;
         }
       case arrow::StringType::type_id:
         {
           // String type
+          std::cout << "begin set the string type" << "\n";
           auto stringArray = std::static_pointer_cast<arrow::StringArray>(array);
           using offset_type = typename arrow::StringType::offset_type;
           offset_type length;
@@ -196,8 +216,16 @@ namespace unsaferow {
           // write the offset and size
           int64_t offsetAndSize = (currentCursor << 32) | length;
           memset(data + offset, offsetAndSize, sizeof(int64_t));
+
+          std::cout <<"the buffer is ";
+          for(int i = 0; i < buffer->size(); i ++) {
+            std::cout <<" " << (int)data[i];
+          }
+          std::cout << "\n";
+          
           // Update the cursor of the buffer.
           *updatedCursor = currentCursor + roundedSize;
+          std::cout << "end set the string type" << "\n";
           break;
         }
       case arrow::Decimal128Type::type_id:
@@ -214,8 +242,9 @@ namespace unsaferow {
   }
 
   arrow::Status UnsafeRowWriterAndReader::Write() {
-    printf("call the write method of unsafe row writer and reader");
     int64_t num_rows = rb_->num_rows();
+
+    std::cout << "call the write method of UnsafeRowWriterAndReader and the num_row is " << num_rows << "\n";
     // Get each row value and write to the buffer
     for (auto i = 0; i < num_rows; i++) {
       auto buffer = buffers_[i];
@@ -226,10 +255,12 @@ namespace unsaferow {
         bool is_null = array->IsNull(i);
         int64_t offset = GetFieldOffset(nullBitsetWidthInBytes_, j);
         if (is_null) {
+          // std::cout << "the value is null and the row id is " << i << " and the col id" << j << "\n";
           SetNullAt(data, offset, j);
         } else {
           // Write the value to the buffer
           int64_t updatedCursor = buffer_cursor_[i];
+          // std::cout << "the value is not null and the row id is " << i << " and the col id " << j << "\n";
           WriteValue(buffer, offset, j, array, buffer_cursor_[i], &updatedCursor);
           buffer_cursor_[i] = updatedCursor;
         }
