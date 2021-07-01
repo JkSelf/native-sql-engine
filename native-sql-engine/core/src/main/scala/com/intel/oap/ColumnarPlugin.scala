@@ -287,12 +287,17 @@ case class ColumnarPostOverrides() extends Rule[SparkPlan] {
       val child = replaceWithColumnarPlan(plan.child)
       logDebug(s"ColumnarPostOverrides RowToArrowColumnarExec(${child.getClass})")
       RowToArrowColumnarExec(child)
+    case plan: ColumnarToRowExec =>
+      val child = replaceWithColumnarPlan(plan.child)
+      logInfo(s"------------ColumnarPostOverrides ArrowColumnarToRowExec(${child.getClass})")
+      new ArrowColumnarToRowExec(child)
     case ColumnarToRowExec(child: ColumnarShuffleExchangeAdaptor) =>
       replaceWithColumnarPlan(child)
     case ColumnarToRowExec(child: ColumnarBroadcastExchangeAdaptor) =>
       replaceWithColumnarPlan(child)
     case ColumnarToRowExec(child: CoalesceBatchesExec) =>
       plan.withNewChildren(Seq(replaceWithColumnarPlan(child.child)))
+
     case r: SparkPlan
         if !r.isInstanceOf[QueryStageExec] && !r.supportsColumnar && r.children.exists(c =>
           c.isInstanceOf[ColumnarToRowExec]) =>
@@ -300,7 +305,10 @@ case class ColumnarPostOverrides() extends Rule[SparkPlan] {
       val children = r.children.map(c =>
         c match {
           case c: ColumnarToRowExec =>
-            c.withNewChildren(c.children.map(replaceWithColumnarPlan))
+            val child = replaceWithColumnarPlan(c.child)
+            new ArrowColumnarToRowExec(child)
+            // ColumnarToRowExec(child)
+            // c.withNewChildren(c.children.map(replaceWithColumnarPlan))
           case other =>
             replaceWithColumnarPlan(other)
         })
