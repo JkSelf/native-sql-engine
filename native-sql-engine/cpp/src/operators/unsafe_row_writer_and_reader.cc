@@ -23,7 +23,7 @@ namespace sparkcolumnarplugin {
 namespace unsaferow {
 
   int64_t CalculateBitSetWidthInBytes(int32_t numFields) {
-    return ((numFields + 63)/ 64) * 8;
+    return ((numFields + 63) / 64) * 8;
   }
 
   int32_t GetVariableColsNum(std::shared_ptr<arrow::Schema> schema, int64_t num_cols) {
@@ -37,53 +37,56 @@ namespace unsaferow {
   }
 
   arrow::Status UnsafeRowWriterAndReader::Init() {
-    int64_t num_rows = rb_->num_rows();
+    num_rows_ = rb_->num_rows();
     num_cols_ = rb_->num_columns();
  
     // Calculate the initial size 
     nullBitsetWidthInBytes_ = CalculateBitSetWidthInBytes(num_cols_);
+    
     int64_t fixedSize = nullBitsetWidthInBytes_ + 8 * num_cols_; // not contain the variable size
 
     int32_t num_variable_cols = GetVariableColsNum(rb_->schema(), num_cols_);
-    
+   
     // Initialize the buffers_ with the initial size.
-    for(auto i = 0; i < num_rows; i ++) {
+    for(auto i = 0; i < num_rows_; i ++) {
       int64_t new_size = fixedSize + num_variable_cols * 32; // 32 is same with vanilla spark.
+      //  std::cout << "the fixedSize is " << fixedSize << "the new size is " << new_size << "\n" << std::flush;
+      std::shared_ptr<arrow::ResizableBuffer> buffer;
       ARROW_ASSIGN_OR_RAISE(
-        auto buffer,
-        arrow::AllocateResizableBuffer(arrow::BitUtil::BytesForBits(new_size),
-                                             memory_pool_));
-      buffers_.push_back(std::move(buffer));                                   
-      buffer_cursor_.push_back(fixedSize);                         
+        buffer,
+        arrow::AllocateResizableBuffer(arrow::BitUtil::BytesForBits(new_size * 8),
+                                             memory_pool_));                                                               
+      memset(buffer->mutable_data(), 0, new_size);                                     
+      buffer_cursor_.push_back(fixedSize);                                        
+      buffers_.push_back(std::move(buffer));                                                  
     }
 
-    row_cursor_ = num_rows - 1;
-    
+    row_cursor_ = 0;
     return arrow::Status::OK();
   }
 
   bool UnsafeRowWriterAndReader::HasNext() {
-    if (row_cursor_ >= 0) {
+    if (row_cursor_ < num_rows_) {
       return true;
     } else {
       return false;
     }
   }
 
-  std::shared_ptr<arrow::ResizableBuffer> UnsafeRowWriterAndReader::Next(int64_t* length) {
-    auto buffer = buffers_[row_cursor_];
+  arrow::Status  UnsafeRowWriterAndReader::Next(int64_t* length, std::shared_ptr<arrow::ResizableBuffer>* buffer) {
+    *buffer = buffers_[row_cursor_];
     *length = buffer_cursor_[row_cursor_];
-    row_cursor_ --;
-    return buffer;
+    row_cursor_ ++;
+    return arrow::Status::OK();
   }
 
   void BitSet(uint8_t* data, int32_t index) {
     int64_t mask = 1L << (index & 0x3f);  // mod 64 and shift
     int64_t wordOffset = (index >> 6) * 8;
-    int64_t word[1];
-    memcpy(data + wordOffset, word, sizeof(int64_t));
-    int64_t value = word[0] | mask;
-    memset(data + wordOffset, value, sizeof(int64_t));
+    int64_t word;
+    memcpy(&word, data + wordOffset, sizeof(int64_t));
+    int64_t value = word | mask;
+    memcpy(data + wordOffset, &value, sizeof(int64_t));
   }
 
   int64_t GetFieldOffset(int64_t nullBitsetWidthInBytes, int32_t index) {
@@ -107,9 +110,8 @@ namespace unsaferow {
   }
 
   arrow::Status WriteValue(std::shared_ptr<arrow::ResizableBuffer> buffer, 
-    int64_t offset, int32_t index, std::shared_ptr<arrow::Array> array, int64_t currentCursor,
+    int64_t offset, int32_t row_index, std::shared_ptr<arrow::Array> array, int64_t currentCursor,
     int64_t* updatedCursor) {
-    // std::cout << "begin call the WriteValue method and the data type is " + array->type_id() << "\n";
     auto data = buffer->mutable_data();
     // Write the value into the buffer
     switch(array->type_id()) {
@@ -118,7 +120,8 @@ namespace unsaferow {
           // Boolean type
           auto boolArray = std::static_pointer_cast<arrow::BooleanArray>(array);
           std::cout << "begin set the boolean type" << "\n";
-          memset(data + offset, boolArray->Value(index), sizeof(bool));
+          auto value = boolArray->Value(row_index);
+          memcpy(data + offset, &value, sizeof(bool));
           std::cout << "end set the boolean type" << "\n";
           break;
         }
@@ -127,7 +130,8 @@ namespace unsaferow {
           // Byte type
           auto int8Array = std::static_pointer_cast<arrow::Int8Array>(array);
           std::cout << "begin set the byte type" << "\n";
-          memset(data + offset, int8Array->Value(index), sizeof(int8_t));
+          auto value = int8Array->Value(row_index);
+          memcpy(data + offset, &value, sizeof(int8_t));
           std::cout << "end set the byte type" << "\n";
           break;
         }
@@ -136,7 +140,8 @@ namespace unsaferow {
           // Short type
           auto int16Array = std::static_pointer_cast<arrow::Int16Array>(array);
           std::cout << "begin set the short type" << "\n";
-          memset(data + offset, int16Array->Value(index), sizeof(int16_t));
+          auto value = int16Array->Value(row_index);
+          memcpy(data + offset, &value, sizeof(int16_t));
           std::cout << "end set the short type" << "\n";
           break;
         }
@@ -145,7 +150,8 @@ namespace unsaferow {
           // Integer type
           auto int32Array = std::static_pointer_cast<arrow::Int32Array>(array);
           std::cout << "begin set the Integer type" << "\n";
-          memset(data + offset, int32Array->Value(index), sizeof(int32_t));
+          auto value = int32Array->Value(row_index);
+          memcpy(data + offset, &value, sizeof(int32_t));
           std::cout << "end set the Integer type" << "\n";
           break;
         }
@@ -154,7 +160,8 @@ namespace unsaferow {
           // Long type
           auto int64Array = std::static_pointer_cast<arrow::Int64Array>(array);
           std::cout << "begin set the Long type" << "\n";
-          memset(data + offset, int64Array->Value(index), sizeof(int64_t));
+          auto value = int64Array->Value(row_index);
+          memcpy(data + offset, &value, sizeof(int64_t));
           std::cout << "end set the Long type" << "\n";
           break;
         }
@@ -163,7 +170,8 @@ namespace unsaferow {
           // Float type
           auto floatArray = std::static_pointer_cast<arrow::FloatArray>(array);
           std::cout << "begin set the Float type" << "\n";
-          memset(data + offset, floatArray->Value(index), sizeof(float));
+          auto value = floatArray->Value(row_index);
+          memcpy(data + offset, &value, sizeof(float));
           std::cout << "end set the Float type" << "\n";
           break;
         }
@@ -172,7 +180,8 @@ namespace unsaferow {
           // Double type
           auto doubleArray = std::static_pointer_cast<arrow::DoubleArray>(array);
           std::cout << "begin set the Double type" << "\n";
-          memset(data + offset, doubleArray->Value(index), sizeof(double));
+          auto value = doubleArray->Value(row_index);
+          memcpy(data + offset, &value, sizeof(double));
           std::cout << "end set the Double type" << "\n";
           break;
         }
@@ -183,20 +192,22 @@ namespace unsaferow {
           auto binaryArray = std::static_pointer_cast<arrow::BinaryArray>(array);
           using offset_type = typename arrow::BinaryType::offset_type;
           offset_type length;
-          auto value = binaryArray->GetValue(index, &length);
-
+          auto value = binaryArray->GetValue(row_index, &length);
           int64_t roundedSize = RoundNumberOfBytesToNearestWord(length);
-          RETURN_NOT_OK(buffer->Resize(roundedSize));
-          // TODO: Whether need to zerooutPaddingBytes()
+          if (roundedSize > 32) {
+            // after call the resize method , the buffer is wrong.
+            RETURN_NOT_OK(buffer->Resize(roundedSize));
+          }
+          // After resize buffer, the data address is changed and the value is reset to 0.
+          auto new_data = buffer->mutable_data();
           // write the variable value
-          memcpy(data + currentCursor, value, length);
+          memcpy(new_data + currentCursor, value, length);
           // write the offset and size
           int64_t offsetAndSize = (currentCursor << 32) | length;
-          memset(data + offset, offsetAndSize, sizeof(int64_t));
+          memcpy(new_data + offset, &offsetAndSize, sizeof(int64_t));
           // Update the cursor of the buffer.
           *updatedCursor = currentCursor + roundedSize;
            std::cout << "end set the binary type" << "\n";
-
           break;
         }
       case arrow::StringType::type_id:
@@ -206,23 +217,21 @@ namespace unsaferow {
           auto stringArray = std::static_pointer_cast<arrow::StringArray>(array);
           using offset_type = typename arrow::StringType::offset_type;
           offset_type length;
-          auto value = stringArray->GetValue(index, &length);
-
+          auto value = stringArray->GetValue(row_index, &length);
           int64_t roundedSize = RoundNumberOfBytesToNearestWord(length);
-          RETURN_NOT_OK(buffer->Resize(roundedSize));
-          // TODO: Whether need to zerooutPaddingBytes()
+        
+          if (roundedSize > 32) {
+            // after call the resize method , the buffer is wrong.
+            RETURN_NOT_OK(buffer->Resize(roundedSize));
+          }
+      
+          // After resize buffer, the data address is changed and the value is reset to 0.
+          auto new_data = buffer->mutable_data();
           // write the variable value
-          memcpy(data + currentCursor, value, length);
+          memcpy(new_data + currentCursor, value, length);
           // write the offset and size
           int64_t offsetAndSize = (currentCursor << 32) | length;
-          memset(data + offset, offsetAndSize, sizeof(int64_t));
-
-          std::cout <<"the buffer is ";
-          for(int i = 0; i < buffer->size(); i ++) {
-            std::cout <<" " << (int)data[i];
-          }
-          std::cout << "\n";
-          
+          memcpy(new_data + offset, &offsetAndSize, sizeof(int64_t));
           // Update the cursor of the buffer.
           *updatedCursor = currentCursor + roundedSize;
           std::cout << "end set the string type" << "\n";
@@ -243,25 +252,21 @@ namespace unsaferow {
 
   arrow::Status UnsafeRowWriterAndReader::Write() {
     int64_t num_rows = rb_->num_rows();
-
-    std::cout << "call the write method of UnsafeRowWriterAndReader and the num_row is " << num_rows << "\n";
     // Get each row value and write to the buffer
     for (auto i = 0; i < num_rows; i++) {
       auto buffer = buffers_[i];
-      uint8_t* data = buffer->mutable_data();
       for(auto j = 0; j < num_cols_; j++) {
+        uint8_t* data = buffer->mutable_data();
         auto array = rb_->column(j);
         // for each column, get the current row  value, check whether it is null, and then write it to data.
         bool is_null = array->IsNull(i);
         int64_t offset = GetFieldOffset(nullBitsetWidthInBytes_, j);
         if (is_null) {
-          // std::cout << "the value is null and the row id is " << i << " and the col id" << j << "\n";
           SetNullAt(data, offset, j);
         } else {
           // Write the value to the buffer
           int64_t updatedCursor = buffer_cursor_[i];
-          // std::cout << "the value is not null and the row id is " << i << " and the col id " << j << "\n";
-          WriteValue(buffer, offset, j, array, buffer_cursor_[i], &updatedCursor);
+          WriteValue(buffer, offset, i, array, buffer_cursor_[i], &updatedCursor);
           buffer_cursor_[i] = updatedCursor;
         }
       }  

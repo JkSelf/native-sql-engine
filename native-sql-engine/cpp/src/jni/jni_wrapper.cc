@@ -1473,7 +1473,8 @@ JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWra
   auto unsafe_writer_and_reader = GetUnsafeRowWriterAndReader(env, instanceID);
   int64_t num_cols = unsafe_writer_and_reader->GetNumCols();
   int64_t length;
-  auto buffer = unsafe_writer_and_reader->Next(&length);
+  std::shared_ptr<arrow::ResizableBuffer> buffer;
+  unsafe_writer_and_reader->Next(&length, &buffer);
   uint8_t* data = buffer->mutable_data();
   // create the UnsafeRow Object
   jobject unsafe_row = env->NewObject(

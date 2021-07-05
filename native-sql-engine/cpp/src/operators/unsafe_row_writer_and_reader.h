@@ -36,7 +36,7 @@ class UnsafeRowWriterAndReader {
    arrow::Status Init();
    arrow::Status Write();
    bool HasNext();
-   std::shared_ptr<arrow::ResizableBuffer> Next(int64_t* length);
+   arrow::Status  Next(int64_t* length, std::shared_ptr<arrow::ResizableBuffer>* buffer);
    int64_t GetNumCols() { return num_cols_; }
 
  protected:
@@ -46,6 +46,7 @@ class UnsafeRowWriterAndReader {
   int64_t nullBitsetWidthInBytes_;
   int64_t row_cursor_;
   int64_t num_cols_;
+  int64_t num_rows_;
   arrow::MemoryPool* memory_pool_ = arrow::default_memory_pool(); 
 };
 
